@@ -1,6 +1,7 @@
+// src/components/WeatherChart.jsx
 import React from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Sun, Cloud, CloudRain, CloudLightning, CloudSnow, CloudDrizzle, AlignLeft } from 'lucide-react';
+import { Sun, Cloud } from 'lucide-react';
 
 const getTooltipIcon = (iconCode) => {
   switch (iconCode) {
@@ -37,14 +38,12 @@ const CustomTooltip = ({ active, payload }) => {
   return null;
 };
 
-export default function WeatherChart({ data }) {
+export default function WeatherChart({ data, isDarkMode }) {
   if (!data || data.length === 0) return null;
 
-  // আগামী ২৪ ঘণ্টার জন্য প্রথম ৮টি ৩-ঘণ্টার স্লট ফিল্টার করে নিলাম
   const chartData = data.slice(0, 8).map(item => {
     const dateObj = new Date(item.dt * 1000);
     return {
-      // এক্স-অক্ষে দেখানোর জন্য ফরম্যাটেড টাইম (যেমন: 03:00 PM)
       name: dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
       fullTime: dateObj.toLocaleDateString('en-US', { weekday: 'short', hour: '2-digit', hour12: true }),
       temp: Math.round(item.main.temp),
@@ -66,13 +65,24 @@ export default function WeatherChart({ data }) {
     tickValues.push(i);
   }
 
+  // থিম ভিত্তিক চার্ট কালার লজিক
+  const axisColor = isDarkMode ? "rgba(255, 255, 255, 0.4)" : "rgba(71, 85, 105, 0.6)"; 
+  const gridColor = isDarkMode ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)";
+  const dotStrokeColor = isDarkMode ? "#1e293b" : "#f97316"; // Darker background dot for dark mode
+
   return (
-    <div className="bg-white/5 backdrop-blur-3xl p-6 rounded-[2.5rem] border border-white/10 shadow-2xl h-full flex flex-col justify-between min-h-[384px]">
+    <div className={`p-6 rounded-[2.5rem] border shadow-2xl h-full flex flex-col justify-between min-h-[384px] transition-colors duration-300 ${
+      isDarkMode 
+        ? 'bg-white/5 border-white/10 text-white' 
+        : 'bg-white/60 border-slate-200 text-slate-800'
+    }`}>
       <div>
         <div className="flex justify-between items-center mb-4">
           <div>
-            <h3 className="text-xl font-black text-white">Hourly Analytics</h3>
-            <p className="text-white/40 text-xs mt-0.5">Temperature fluctuation over the next 24 hours</p>
+            <h3 className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Hourly Analytics</h3>
+            <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-white/40' : 'text-slate-400'}`}>
+              Temperature fluctuation over the next 24 hours
+            </p>
           </div>
           <div className="flex items-center gap-2 bg-orange-500/10 border border-orange-500/20 px-3 py-1.5 rounded-full">
             <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
@@ -90,24 +100,24 @@ export default function WeatherChart({ data }) {
                 <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
             <XAxis 
               dataKey="name" 
-              stroke="rgba(255,255,255,0.3)" 
+              stroke={axisColor} 
               fontSize={10}
               tickLine={false}
               axisLine={false}
               dy={10}
             />
             <YAxis 
-              stroke="rgba(255,255,255,0.3)" 
+              stroke={axisColor} 
               fontSize={11}
               tickLine={false}
               axisLine={false}
               ticks={[...new Set(tickValues)]}
               domain={[adjustedStart, 'dataMax + 2']}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }} />
+            <Tooltip content={<CustomTooltip />} cursor={{ stroke: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)', strokeWidth: 1 }} />
             <Area 
               type="monotone" 
               dataKey="temp" 
@@ -115,17 +125,36 @@ export default function WeatherChart({ data }) {
               strokeWidth={3}
               fillOpacity={1} 
               fill="url(#colorTemp)" 
-              dot={{ r: 4, strokeWidth: 2, fill: '#fff' }}
+              dot={{ r: 4, strokeWidth: 2, fill: isDarkMode ? '#fff' : dotStrokeColor }}
               activeDot={{ r: 6 }}
             />
           </AreaChart>
         </ResponsiveContainer>
       </div>
 
+      {/* Bottom Tabs */}
       <div className="grid grid-cols-3 gap-2 mt-4">
-        <button className="py-2 bg-white/10 hover:bg-white/15 rounded-xl text-xs font-bold transition-all text-white">Next 24 Hours</button>
-        <button className="py-2 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold transition-all text-white/60">Wind Flow</button>
-        <button className="py-2 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold transition-all text-white/60">Humidity</button>
+        <button className={`py-2 rounded-xl text-xs font-bold transition-all ${
+          isDarkMode 
+            ? 'bg-white/10 hover:bg-white/15 text-white' 
+            : 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+        }`}>
+          Next 24 Hours
+        </button>
+        <button className={`py-2 rounded-xl text-xs font-bold transition-all ${
+          isDarkMode 
+            ? 'bg-white/5 hover:bg-white/10 text-white/60' 
+            : 'bg-slate-100 border border-slate-200/60 text-slate-500 hover:bg-slate-200/50'
+        }`}>
+          Wind Flow
+        </button>
+        <button className={`py-2 rounded-xl text-xs font-bold transition-all ${
+          isDarkMode 
+            ? 'bg-white/5 hover:bg-white/10 text-white/60' 
+            : 'bg-slate-100 border border-slate-200/60 text-slate-500 hover:bg-slate-200/50'
+        }`}>
+          Humidity
+        </button>
       </div>
     </div>
   );

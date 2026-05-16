@@ -2,7 +2,7 @@
 import React from 'react';
 import { Compass, Droplets, Thermometer, Wind } from 'lucide-react';
 
-export default function WeatherCard({ weather, aqi, icon, formatTemp }) {
+export default function WeatherCard({ weather, aqi, icon, formatTemp, isDarkMode }) {
   if (!weather) return null;
 
   const isNight = weather.weather[0].icon.endsWith('n');
@@ -33,8 +33,11 @@ export default function WeatherCard({ weather, aqi, icon, formatTemp }) {
   };
 
   return (
-    <div className="p-8 flex flex-col h-full justify-between min-h-[460px] relative overflow-hidden group rounded-[2.5rem]">
+    <div className={`p-8 flex flex-col h-full justify-between min-h-[460px] relative overflow-hidden group rounded-[2.5rem] transition-colors duration-300 ${
+      isDarkMode ? 'text-white' : 'text-slate-800'
+    }`}>
       
+      {/* Background Animated Gradient Orb */}
       <div className={`absolute -right-12 -top-12 w-40 h-40 rounded-full blur-3xl opacity-20 pointer-events-none transition-all duration-1000 ${
         mainCondition.includes('clear') && !isNight ? 'bg-amber-400 animate-pulse' :
         isNight ? 'bg-indigo-400 animate-[pulse_4s_ease-in-out_infinite]' : 'bg-sky-400'
@@ -50,14 +53,19 @@ export default function WeatherCard({ weather, aqi, icon, formatTemp }) {
         .animate-card-3 { animation: cardPopIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; opacity: 0; }
       `}</style>
 
+      {/* Top Section: Temp, City and Icon */}
       <div className="flex justify-between items-start w-full z-10">
         <div>
           <div className="flex items-baseline select-none">
-            <span className="text-5xl font-black tracking-tighter text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.3)] transition-all duration-500 hover:scale-105 block cursor-default">
+            <span className={`text-5xl font-black tracking-tighter drop-shadow-[0_4px_12px_rgba(0,0,0,0.15)] transition-all duration-500 hover:scale-105 block cursor-default ${
+              isDarkMode ? 'text-white' : 'text-slate-800'
+            }`}>
               {formatTemp(weather.main.temp)}
             </span>
           </div>
-          <h2 className="text-2xl font-black tracking-tight text-white mt-2 select-text hover:text-orange-400 transition-colors">
+          <h2 className={`text-2xl font-black tracking-tight mt-2 select-text hover:text-orange-500 transition-colors ${
+            isDarkMode ? 'text-white' : 'text-slate-800'
+          }`}>
             {weather.name}, {weather.sys.country}
           </h2>
           <span className={`inline-block mt-3 px-3 py-1 rounded-full text-[10px] font-black tracking-wider border transition-all duration-500 transform hover:scale-110 cursor-pointer ${aqiStatus.color}`}>
@@ -65,49 +73,78 @@ export default function WeatherCard({ weather, aqi, icon, formatTemp }) {
           </span>
         </div>
 
-        <div className="w-[76px] h-[76px] p-4 bg-white/5 rounded-[2rem] border border-white/10 shadow-[inset_0_4px_12px_rgba(255,255,255,0.05)] backdrop-blur-sm hover:bg-white/10 transition-all duration-300 flex items-center justify-center">
+        <div className={`w-[76px] h-[76px] p-4 rounded-[2rem] border backdrop-blur-sm transition-all duration-300 flex items-center justify-center ${
+          isDarkMode 
+            ? 'bg-white/5 border-white/10 shadow-[inset_0_4px_12px_rgba(255,255,255,0.05)] hover:bg-white/10' 
+            : 'bg-slate-100 border-slate-200/80 shadow-[inset_0_2px_6px_rgba(0,0,0,0.03)] hover:bg-slate-200/50'
+        }`}>
           {icon}
         </div>
       </div>
 
+      {/* Middle Section: Condition and Wind Direction */}
       <div className="my-8 flex justify-between items-center z-10">
         <div>
-          <p className="text-white/30 text-[10px] font-black uppercase tracking-widest mb-1">Current Status</p>
-          <p className="text-2xl font-black tracking-wide text-white capitalize drop-shadow-sm">{weather.weather[0].description}</p>
+          <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${
+            isDarkMode ? 'text-white/30' : 'text-slate-400'
+          }`}>Current Status</p>
+          <p className={`text-2xl font-black tracking-wide capitalize drop-shadow-sm ${
+            isDarkMode ? 'text-white' : 'text-slate-800'
+          }`}>{weather.weather[0].description}</p>
         </div>
         
-        <div className="flex items-center gap-3 bg-white/5 border border-white/5 rounded-2xl p-3 backdrop-blur-xl hover:border-orange-500/30 transition-all cursor-default">
+        <div className={`flex items-center gap-3 border rounded-2xl p-3 backdrop-blur-xl hover:border-orange-500/30 transition-all cursor-default ${
+          isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-100/80 border-slate-200/60'
+        }`}>
           <Compass 
             size={20} 
-            className="text-orange-400 transition-transform duration-700 ease-out" 
+            className="text-orange-500 transition-transform duration-700 ease-out" 
             style={{ 
               transform: `rotate(${weather.wind.deg}deg)` 
             }} 
           />
-          <span className="text-xs font-bold text-white/70 tracking-wide">{getWindDirection(weather.wind.deg)}</span>
+          <span className={`text-xs font-bold tracking-wide ${
+            isDarkMode ? 'text-white/70' : 'text-slate-600'
+          }`}>{getWindDirection(weather.wind.deg)}</span>
         </div>
       </div>
 
+      {/* Bottom Grid Section: Details Metrics */}
       <div className="grid grid-cols-3 gap-4 z-10">
         
-        <div className="bg-white/5 border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center backdrop-blur-md shadow-sm hover:bg-white/10 hover:border-white/10 hover:-translate-y-1 transition-all duration-300 cursor-default group/item animate-card-1">
-          <Droplets size={18} className="text-blue-400 mb-2 transition-transform duration-500 group-hover/item:scale-125 group-hover/item:animate-pulse" />
-          <p className="text-[9px] text-white/30 font-black uppercase tracking-wider">Humidity</p>
-          <p className="font-black text-base text-white mt-1">{weather.main.humidity}%</p>
+        {/* Humidity Card */}
+        <div className={`p-4 rounded-2xl flex flex-col items-center justify-center backdrop-blur-md shadow-sm hover:-translate-y-1 transition-all duration-300 cursor-default group/item animate-card-1 border ${
+          isDarkMode 
+            ? 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10' 
+            : 'bg-slate-100/60 border-slate-200 hover:bg-slate-100 hover:border-slate-300/40'
+        }`}>
+          <Droplets size={18} className="text-blue-500 mb-2 transition-transform duration-500 group-hover/item:scale-125 group-hover/item:animate-pulse" />
+          <p className={`text-[9px] font-black uppercase tracking-wider ${isDarkMode ? 'text-white/30' : 'text-slate-400'}`}>Humidity</p>
+          <p className={`font-black text-base mt-1 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{weather.main.humidity}%</p>
         </div>
 
-        <div className="bg-white/5 border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center backdrop-blur-md shadow-sm hover:bg-white/10 hover:border-white/10 hover:-translate-y-1 transition-all duration-300 cursor-default group/item animate-card-2">
-          <Wind size={18} className="text-sky-400 mb-2 transition-transform duration-500 group-hover/item:scale-125" />
-          <p className="text-[9px] text-white/30 font-black uppercase tracking-wider">Wind</p>
-          <p className="font-black text-sm text-white mt-1 text-center leading-tight">
-            {((weather.wind.speed) * 3.6).toFixed(1)} <span className="text-[9px] font-medium block text-white/50">km/h</span>
+        {/* Wind Speed Card */}
+        <div className={`p-4 rounded-2xl flex flex-col items-center justify-center backdrop-blur-md shadow-sm hover:-translate-y-1 transition-all duration-300 cursor-default group/item animate-card-2 border ${
+          isDarkMode 
+            ? 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10' 
+            : 'bg-slate-100/60 border-slate-200 hover:bg-slate-100 hover:border-slate-300/40'
+        }`}>
+          <Wind size={18} className="text-sky-500 mb-2 transition-transform duration-500 group-hover/item:scale-125" />
+          <p className={`text-[9px] font-black uppercase tracking-wider ${isDarkMode ? 'text-white/30' : 'text-slate-400'}`}>Wind</p>
+          <p className={`font-black text-sm mt-1 text-center leading-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+            {((weather.wind.speed) * 3.6).toFixed(1)} <span className={`text-[9px] font-medium block ${isDarkMode ? 'text-white/50' : 'text-slate-400'}`}>km/h</span>
           </p>
         </div>
 
-        <div className="bg-white/5 border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center backdrop-blur-md shadow-sm hover:bg-white/10 hover:border-white/10 hover:-translate-y-1 transition-all duration-300 cursor-default group/item animate-card-3">
-          <Thermometer size={18} className="text-amber-400 mb-2 transition-transform duration-500 group-hover/item:scale-125" />
-          <p className="text-[9px] text-white/30 font-black uppercase tracking-wider">Feels Like</p>
-          <p className="font-black text-base text-white mt-1">{formatTemp(weather.main.feels_like)}</p>
+        {/* Feels Like Card */}
+        <div className={`p-4 rounded-2xl flex flex-col items-center justify-center backdrop-blur-md shadow-sm hover:-translate-y-1 transition-all duration-300 cursor-default group/item animate-card-3 border ${
+          isDarkMode 
+            ? 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10' 
+            : 'bg-slate-100/60 border-slate-200 hover:bg-slate-100 hover:border-slate-300/40'
+        }`}>
+          <Thermometer size={18} className="text-amber-500 mb-2 transition-transform duration-500 group-hover/item:scale-125" />
+          <p className={`text-[9px] font-black uppercase tracking-wider ${isDarkMode ? 'text-white/30' : 'text-slate-400'}`}>Feels Like</p>
+          <p className={`font-black text-base mt-1 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{formatTemp(weather.main.feels_like)}</p>
         </div>
 
       </div>

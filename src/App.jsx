@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Loader2, MapPin, Wind, LayoutDashboard, Settings, History as HistoryIcon, Users, Globe, Coins, Sun, Moon, Cloud, CloudRain, CloudLightning, CloudSnow, CloudDrizzle, Clock, Edit2 } from 'lucide-react';
+import { Search, Loader2, MapPin, Wind, LayoutDashboard, Settings, History as HistoryIcon, Users, Globe, Coins, Sun, Moon, Cloud, CloudRain, CloudLightning, CloudSnow, CloudDrizzle, Clock, Edit2, Volume2, Sparkles, Bell } from 'lucide-react';
 import WeatherCard from './components/WeatherCard';
 import Sidebar from './components/Sidebar';
 import WeatherChart from './components/WeatherChart';
@@ -23,11 +23,18 @@ export default function App() {
   const [localTime, setLocalTime] = useState('');
   const [isCelsius, setIsCelsius] = useState(true);
   
+  // বাই-ডিফল্ট অ্যাপ সবসময় ডার্ক মোডে শুরু হবে
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const savedTheme = localStorage.getItem('skylineTheme');
+    return savedTheme ? savedTheme === 'dark' : true;
+  });
+  
   const [userName, setUserName] = useState(() => {
     const savedName = localStorage.getItem('skylineUserName');
     return savedName ? savedName : 'Saikat Chandra Das';
   });
   const [isEditingName, setIsEditingName] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const timerRef = useRef(null);
   const API_KEY = "50e4e17dfb05e4fca15affda7ae8cb1a";
@@ -37,7 +44,14 @@ export default function App() {
   }, [history]);
 
   useEffect(() => {
+    localStorage.setItem('skylineTheme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
+
+  useEffect(() => {
     getMyLocation();
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
@@ -108,6 +122,87 @@ export default function App() {
     };
   }, [weather, forecast, selectedDayIndex]);
 
+  const lifestyleSuggestions = useMemo(() => {
+    if (!currentDisplayedWeather) return null;
+    
+    const temp = currentDisplayedWeather.main.temp;
+    const condition = currentDisplayedWeather.weather[0].main.toLowerCase();
+    
+    let dress = "Wear comfortable casual clothing.";
+    let tip = "The weather is quite stable today. Enjoy your day!";
+    let alertText = "No active weather alerts for now.";
+
+    if (temp >= 32) {
+      dress = "Opt for lightweight, loose-fitting cotton clothing. Full-sleeve shirts are recommended for sun protection.";
+      tip = "It's scorching hot outside! Don't forget to carry a water bottle and wear sunglasses.";
+      alertText = "Avoid direct sunlight between 12 PM and 3 PM to prevent heat exhaustion.";
+    } else if (temp < 32 && temp >= 25) {
+      dress = "Perfect for standard t-shirts, polos, or lightweight casual shirts.";
+      tip = "Wonderful weather for outdoor activities and productivity. Make the most of it!";
+      alertText = "Weather is pleasant, but consider wearing a mask if the streets are dusty.";
+    } else if (temp < 25 && temp >= 18) {
+      dress = "A long-sleeve shirt or a light jacket/hoodie would be ideal, especially for the evening.";
+      tip = "There's a slight chill in the air—perfect time for a warm cup of coffee or tea!";
+      alertText = "Light, cool breezes are expected later in the day.";
+    } else if (temp < 18) {
+      dress = "Wear thick jackets, sweaters, or blazers. Consider layering up to stay warm.";
+      tip = "Brace yourself for cold weather! Keep yourself warm and stay hydrated with lukewarm water.";
+      alertText = "Stay cautious against catching a cold or triggering sinus sensitivities.";
+    }
+
+    if (condition.includes('rain') || condition.includes('drizzle')) {
+      dress = "Wear waterproof footwear and synthetic clothing that dries rapidly.";
+      tip = "Do not forget to carry an umbrella or a raincoat before stepping out today.";
+      alertText = "Expect waterlogging and slippery roads. Commute safely and drive with caution.";
+    } else if (condition.includes('thunderstorm')) {
+      dress = "It is highly recommended to stay indoors. Wear safe, protective gear if emergency travel is required.";
+      tip = "High probability of lightning. Disconnect or handle electronic devices with extra care.";
+      alertText = "Avoid standing in open fields or taking shelter under large trees during thunderstorms.";
+    }
+
+    return { dress, tip, alertText };
+  }, [currentDisplayedWeather]);
+
+  const checkRainAlert = (forecastList, cityName) => {
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+
+    const nextForecast = forecastList[0];
+    if (!nextForecast) return;
+
+    const condition = nextForecast.weather[0].main.toLowerCase();
+    const timeText = new Date(nextForecast.dt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    if (condition.includes('rain') || condition.includes('drizzle') || condition.includes('thunderstorm')) {
+      new Notification(`Skyline Weather Alert: ${cityName}`, {
+        body: `Rain or storm is expected within the next 3 hours (${timeText})! Keep an umbrella handy.`,
+        icon: '/favicon.ico'
+      });
+    }
+  };
+
+  const speakWeatherReport = () => {
+    if (!weather) return;
+
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    const tempText = isCelsius ? `${Math.round(weather.main.temp)} degrees Celsius` : `${Math.round((weather.main.temp * 9/5) + 32)} degrees Fahrenheit`;
+    const speechText = `Hi ${userName}. Currently in ${weather.name}, it is ${tempText} with ${weather.weather[0].description}. Wind speed is ${weather.wind.speed} kilometers per hour. Have a great day!`;
+
+    const utterance = new SpeechSynthesisUtterance(speechText);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.95;
+
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    setIsSpeaking(true);
+    window.speechSynthesis.speak(utterance);
+  };
+
   const filteredChartData = useMemo(() => {
     if (rawForecastList.length === 0) return [];
     
@@ -141,7 +236,6 @@ export default function App() {
       delay: `${Math.random() * 2}s`,
     }));
 
-    // মোবাইলের জন্য মেঘের সাইজ কিছুটা রেসপনসিভ করা হলো
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
     const clouds = [...Array(4)].map(() => ({
       width: isMobile ? `${180 + Math.random() * 100}px` : `${350 + Math.random() * 150}px`,
@@ -180,6 +274,10 @@ export default function App() {
   }, [currentDisplayedWeather]);
 
   const getDynamicBgColor = () => {
+    if (!isDarkMode) {
+      return "from-[#F0F4F8] via-[#E2E8F0] to-[#CBD5E1]";
+    }
+    
     if (!currentDisplayedWeather) return "from-[#0D1117] to-[#161B22]";
     const condition = currentDisplayedWeather.weather[0].main.toLowerCase();
     
@@ -224,7 +322,7 @@ export default function App() {
           <Sun size={36} className="text-amber-400 drop-shadow-[0_0_12px_rgba(251,191,36,0.6)] animate-[spin_20s_linear_infinite]" />
         );
       case '02': case '03': case '04': 
-        return <Cloud size={36} className="text-sky-200 drop-shadow-[0_4px_6px_rgba(255,255,255,0.2)]" />;
+        return <Cloud size={36} className={isDarkMode ? "text-sky-200 drop-shadow-[0_4px_6px_rgba(255,255,255,0.2)]" : "text-slate-400 drop-shadow-[0_4px_6px_rgba(0,0,0,0.1)]"} />;
       case '09': 
         return <CloudDrizzle size={36} className="text-blue-400" />;
       case '10': 
@@ -232,7 +330,7 @@ export default function App() {
       case '11': 
         return <CloudLightning size={36} className="text-yellow-400" />;
       case '13': 
-        return <CloudSnow size={36} className="text-indigo-100" />;
+        return <CloudSnow size={36} className={isDarkMode ? "text-indigo-100" : "text-sky-600"} />;
       case '50': 
         return <Cloud size={36} className="text-gray-400/80 drop-shadow-[0_2px_8px_rgba(156,163,175,0.4)]" />;
       default: 
@@ -254,7 +352,7 @@ export default function App() {
           {animationData.rainDrops?.map((drop, i) => (
             <div
               key={i}
-              className="absolute bg-gradient-to-b from-transparent to-sky-400/60 w-[1.5px] h-[60px] rounded"
+              className={`absolute w-[1.5px] h-[60px] rounded ${isDarkMode ? 'bg-gradient-to-b from-transparent to-sky-400/60' : 'bg-gradient-to-b from-transparent to-blue-500/80'}`}
               style={{
                 left: drop.left,
                 top: drop.top,
@@ -269,13 +367,11 @@ export default function App() {
 
     if (condition.includes('cloud')) {
       return (
-        // কন্টেইনারটি স্ক্রিনের ভেতরে ফিক্সড রাখার জন্য এবং overflow হ্যান্ডেল করার জন্য
         <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 bit-cloud-container">
           {animationData.clouds?.map((cloud, i) => (
             <div
               key={i}
-              // এখানে CSS ভ্যারিয়েবল ও কি-ফ্রেম আপডেট করা হয়েছে যাতে মোবাইল স্ক্রিনের বাইরে হারিয়ে না যায়
-              className="absolute bg-gradient-to-br from-white/20 via-white/40 to-transparent rounded-full cloud-element"
+              className={`absolute rounded-full cloud-element ${isDarkMode ? 'bg-gradient-to-br from-white/20 via-white/40 to-transparent' : 'bg-gradient-to-br from-slate-400/10 via-slate-500/20 to-transparent'}`}
               style={{
                 width: cloud.width,
                 height: cloud.height,
@@ -294,7 +390,7 @@ export default function App() {
     if (condition.includes('clear')) {
       return (
         <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-          {isNight ? (
+          {isNight && isDarkMode ? (
             <>
               {animationData.stars?.map((star, i) => (
                 <div
@@ -325,13 +421,13 @@ export default function App() {
                 />
               ))}
             </>
-          ) : (
+          ) : !isNight ? (
             <>
-              <div className="absolute top-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-gradient-to-br from-amber-500/10 via-orange-400/5 to-transparent rounded-full blur-[120px] pointer-events-none animate-[pulse_8s_ease-in-out_infinite]" />
+              <div className={`absolute top-[-10%] right-[-10%] w-[50vw] h-[50vw] rounded-full blur-[120px] pointer-events-none animate-[pulse_8s_ease-in-out_infinite] ${isDarkMode ? 'bg-gradient-to-br from-amber-500/10 via-orange-400/5 to-transparent' : 'bg-gradient-to-br from-amber-400/20 via-orange-300/10 to-transparent'}`} />
               {animationData.sunBeams?.map((beam, i) => (
                 <div
                   key={i}
-                  className="absolute bg-amber-400/30 rounded-full blur-[0.5px] opacity-0"
+                  className={`absolute rounded-full blur-[0.5px] opacity-0 ${isDarkMode ? 'bg-amber-400/30' : 'bg-amber-500/40'}`}
                   style={{
                     width: beam.width,
                     height: beam.height,
@@ -343,7 +439,7 @@ export default function App() {
                 />
               ))}
             </>
-          )}
+          ) : null}
         </div>
       );
     }
@@ -354,7 +450,7 @@ export default function App() {
           {[...Array(4)].map((_, i) => (
             <div
               key={i}
-              className="absolute bg-gradient-to-r from-gray-600/10 via-gray-400/20 to-gray-600/10 w-[160%] h-[280px]"
+              className={`absolute w-[160%] h-[280px] ${isDarkMode ? 'bg-gradient-to-r from-gray-600/10 via-gray-400/20 to-gray-600/10' : 'bg-gradient-to-r from-slate-400/10 via-slate-500/20 to-transparent'}`}
               style={{
                 left: '-30%',
                 top: `${i * 22}%`,
@@ -398,6 +494,10 @@ export default function App() {
 
       setForecast(dailyData.slice(0, 5));
       setSelectedDayIndex(0); 
+
+      if (forecastData.list && forecastData.list.length > 0) {
+        checkRainAlert(forecastData.list, cityName);
+      }
     } catch (err) {
       console.error(err);
     }
@@ -437,8 +537,10 @@ export default function App() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (p) => fetchData({ lat: p.coords.latitude, lon: p.coords.longitude }),
-        () => fetchData("Dhaka")
+        () => fetchData("Comilla")
       );
+    } else {
+      fetchData("Comilla");
     }
   };
 
@@ -448,7 +550,7 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br ${getDynamicBgColor()} text-white flex overflow-hidden font-sans transition-all duration-1000 relative`}>
+    <div className={`min-h-screen bg-gradient-to-br ${getDynamicBgColor()} ${isDarkMode ? 'text-white' : 'text-slate-800'} flex overflow-hidden font-sans transition-all duration-1000 relative`}>
       
       {renderWeatherAnimation()}
 
@@ -460,7 +562,6 @@ export default function App() {
           100% { transform: translateY(100vh) translateX(30px); opacity: 0; }
         }
         
-        /* মোবাইলের উইডথ অনুযায়ী অ্যানিমেশন কীফ্রেম ফিক্সড করা হলো */
         .cloud-element {
           left: -250px;
         }
@@ -503,14 +604,14 @@ export default function App() {
         }
       `}</style>
 
-      <nav className="w-20 hidden lg:flex flex-col items-center py-10 bg-black/20 border-r border-white/5 backdrop-blur-3xl z-10">
+      <nav className={`w-20 hidden lg:flex flex-col items-center py-10 border-r backdrop-blur-3xl z-10 ${isDarkMode ? 'bg-black/20 border-white/5 text-white' : 'bg-white/40 border-slate-200 text-slate-800'}`}>
         <div className="p-3 bg-orange-500 rounded-2xl mb-10 shadow-lg shadow-orange-500/40">
           <Wind size={24} className="text-white" />
         </div>
         <div className="space-y-10 flex-1">
           <LayoutDashboard size={24} className="text-orange-500 cursor-pointer" />
-          <HistoryIcon size={24} className="text-white/40 hover:text-white cursor-pointer transition-all" />
-          <Settings size={24} className="text-white/40 hover:text-white cursor-pointer transition-all" />
+          <HistoryIcon size={24} className={`cursor-pointer transition-all ${isDarkMode ? 'text-white/40 hover:text-white' : 'text-slate-400 hover:text-slate-800'}`} />
+          <Settings size={24} className={`cursor-pointer transition-all ${isDarkMode ? 'text-white/40 hover:text-white' : 'text-slate-400 hover:text-slate-800'}`} />
         </div>
       </nav>
 
@@ -519,7 +620,7 @@ export default function App() {
         <header className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
           <div className="flex items-center justify-between w-full md:w-auto md:gap-8">
             <div>
-              <h1 className="text-4xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-white/60">
+              <h1 className={`text-4xl font-black tracking-tight text-transparent bg-clip-text ${isDarkMode ? 'bg-gradient-to-r from-white via-white to-white/60' : 'bg-gradient-to-r from-slate-900 via-slate-800 to-slate-500'}`}>
                 Skyline
               </h1>
               
@@ -535,13 +636,13 @@ export default function App() {
                       if (e.key === 'Enter') handleSaveName(e.target.value);
                       if (e.key === 'Escape') setIsEditingName(false);
                     }}
-                    className="bg-white/10 border border-orange-500/50 rounded px-2 py-0.5 text-xs font-bold text-white focus:outline-none w-44"
+                    className={`border rounded px-2 py-0.5 text-xs font-bold focus:outline-none w-44 ${isDarkMode ? 'bg-white/10 border-orange-500/50 text-white' : 'bg-slate-100 border-orange-500/50 text-slate-800'}`}
                   />
                 ) : (
                   <>
                     <p 
                       onClick={() => setIsEditingName(true)}
-                      className="text-white/40 text-sm uppercase tracking-widest font-bold cursor-pointer hover:text-orange-400 transition-colors select-none"
+                      className={`text-sm uppercase tracking-widest font-bold cursor-pointer hover:text-orange-400 transition-colors select-none ${isDarkMode ? 'text-white/40' : 'text-slate-500'}`}
                       title="Click to edit name"
                     >
                       {userName}
@@ -549,19 +650,36 @@ export default function App() {
                     <Edit2 
                       size={12} 
                       onClick={() => setIsEditingName(true)}
-                      className="text-white/20 opacity-0 group-hover:opacity-100 hover:text-orange-400 cursor-pointer transition-all" 
+                      className={`opacity-0 group-hover:opacity-100 hover:text-orange-400 cursor-pointer transition-all ${isDarkMode ? 'text-white/20' : 'text-slate-400'}`} 
                     />
                   </>
                 )}
               </div>
             </div>
 
-            <button 
-              onClick={() => setIsCelsius(!isCelsius)}
-              className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-xs font-black tracking-wider transition-all backdrop-blur-xl shadow-md text-orange-400 select-none transform active:scale-95"
-            >
-              UNIT: {isCelsius ? '°C' : '°F'}
-            </button>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={speakWeatherReport}
+                title="Listen to Weather Report"
+                className={`p-2.5 border rounded-xl transition-all backdrop-blur-xl shadow-md transform active:scale-95 ${isSpeaking ? 'bg-orange-500 text-white animate-bounce' : isDarkMode ? 'bg-white/10 border-white/10 text-orange-400 hover:bg-white/20' : 'bg-slate-200/60 border-slate-300 text-orange-500 hover:bg-slate-200'}`}
+              >
+                <Volume2 size={18} />
+              </button>
+
+              <button 
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                className={`p-2.5 border rounded-xl transition-all backdrop-blur-xl shadow-md transform active:scale-95 ${isDarkMode ? 'bg-white/10 border-white/10 text-yellow-400 hover:bg-white/20' : 'bg-slate-200/60 border-slate-300 text-indigo-950 hover:bg-slate-200'}`}
+              >
+                {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
+
+              <button 
+                onClick={() => setIsCelsius(!isCelsius)}
+                className={`px-4 py-2 border rounded-xl text-xs font-black tracking-wider transition-all backdrop-blur-xl shadow-md text-orange-400 select-none transform active:scale-95 ${isDarkMode ? 'bg-white/10 border-white/10 hover:bg-white/20' : 'bg-slate-200/60 border-slate-300 hover:bg-slate-200'}`}
+              >
+                UNIT: {isCelsius ? '°C' : '°F'}
+              </button>
+            </div>
           </div>
           
           <div className="flex gap-3 w-full md:w-auto z-50">
@@ -569,7 +687,7 @@ export default function App() {
               <input 
                 type="text" 
                 placeholder="Search worldwide city..." 
-                className="w-full p-4 pl-14 rounded-2xl bg-white/10 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 backdrop-blur-xl transition-all placeholder-white/40"
+                className={`w-full p-4 pl-14 rounded-2xl border focus:outline-none focus:ring-2 focus:ring-orange-500/50 backdrop-blur-xl transition-all ${isDarkMode ? 'bg-white/10 border-white/10 text-white placeholder-white/40' : 'bg-slate-200/50 border-slate-300 text-slate-800 placeholder-slate-400'}`}
                 value={city} 
                 onChange={(e) => {
                   setCity(e.target.value);
@@ -579,13 +697,13 @@ export default function App() {
                 onFocus={() => setShowSuggestions(true)}
                 onKeyPress={(e) => e.key === 'Enter' && fetchData(city)}
               />
-              <Search className="absolute left-5 top-4 text-white/30" size={20} />
+              <Search className={`absolute left-5 top-4 ${isDarkMode ? 'text-white/30' : 'text-slate-400'}`} size={20} />
               {showSuggestions && (
                 <SearchSuggestions query={city} onSelect={handleSelectSuggestion} />
               )}
             </div>
             <button onClick={getMyLocation}
-              className="p-4 bg-orange-500/10 border border-orange-500/20 rounded-2xl text-orange-400 hover:bg-orange-500 hover:text-white transition-all shadow-lg h-full">
+              className={`p-4 border rounded-2xl text-orange-400 hover:bg-orange-500 hover:text-white transition-all shadow-lg h-full ${isDarkMode ? 'bg-orange-500/10 border-orange-500/20' : 'bg-slate-200/60 border-slate-300'}`}>
               <MapPin size={22} />
             </button>
           </div>
@@ -594,7 +712,7 @@ export default function App() {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-32 space-y-4">
             <Loader2 className="text-orange-500 animate-spin" size={60} />
-            <p className="text-white/40 font-bold tracking-widest animate-pulse">SYNCING GLOBAL DATA...</p>
+            <p className={`font-bold tracking-widest animate-pulse ${isDarkMode ? 'text-white/40' : 'text-slate-400'}`}>SYNCING GLOBAL DATA...</p>
           </div>
         ) : (
           weather && (
@@ -602,84 +720,113 @@ export default function App() {
               <div className="xl:col-span-3 space-y-8">
                 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  <div className="relative lg:col-span-1 rounded-[2.5rem] shadow-2xl bg-white/5 border border-white/10 backdrop-blur-xl overflow-hidden">
+                  {/* এখানে রিয়েল-টাইম থিম ট্র্যাকিংয়ের জন্য {isDarkMode} ভ্যালু নিখুঁতভাবে পাস করা হয়েছে */}
+                  <div className={`relative lg:col-span-1 rounded-[2.5rem] shadow-2xl border backdrop-blur-xl overflow-hidden ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100/80 border-slate-200'}`}>
                     <WeatherCard 
                       weather={currentDisplayedWeather} 
                       aqi={aqi} 
                       icon={getWeatherIcon(currentDisplayedWeather.weather[0].icon, selectedDayIndex !== 0)} 
                       formatTemp={formatTemp} 
                       isForecastDay={selectedDayIndex !== 0}
+                      isDarkMode={isDarkMode} 
                     />
                   </div>
-                  <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                  <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                     {forecast.map((day, i) => (
                       <div 
                         key={i} 
                         onClick={() => setSelectedDayIndex(i)}
-                        className={`relative overflow-hidden cursor-pointer p-5 rounded-[2rem] border backdrop-blur-2xl flex flex-col items-center justify-center hover:scale-105 transition-all duration-300 shadow-xl min-h-[140px] ${
+                        className={`relative overflow-hidden cursor-pointer p-4 rounded-[2rem] border backdrop-blur-2xl flex flex-col items-center justify-center hover:scale-105 transition-all duration-300 shadow-xl min-h-[140px] ${
                           selectedDayIndex === i 
                             ? 'bg-orange-500/20 border-orange-500/50 shadow-orange-500/10' 
-                            : 'bg-white/5 border-white/5 hover:bg-white/10'
+                            : isDarkMode ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-slate-100/80 border-slate-200 hover:bg-slate-200/50'
                         }`}
                       >
                         <div className="absolute -bottom-6 w-12 h-12 bg-orange-500/10 rounded-full blur-xl pointer-events-none"></div>
-                        <p className="text-xs text-white/40 font-bold mb-2">
+                        <p className={`text-xs font-bold mb-2 ${isDarkMode ? 'text-white/40' : 'text-slate-400'}`}>
                           {i === 0 ? "Today" : new Date(day.dt * 1000).toLocaleDateString('en-US', { weekday: 'short' })}
                         </p>
                         <div className="my-2 h-10 flex items-center justify-center">
                           {getWeatherIcon(day.weather[0].icon, true)}
                         </div>
-                        <p className="font-black text-xl text-white mt-2">{formatTemp(day.main.temp)}</p>
+                        <p className={`font-black text-lg mt-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{formatTemp(day.main.temp)}</p>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  <div className="lg:col-span-1">
-                    <SolarTracker weather={currentDisplayedWeather} />
+                {lifestyleSuggestions && (
+                  <div className={`grid grid-cols-1 md:grid-cols-3 gap-6 backdrop-blur-2xl p-6 rounded-[2.5rem] border shadow-xl ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100/80 border-slate-200 text-slate-800'}`}>
+                    <div className="flex gap-4 items-start p-4 rounded-3xl bg-orange-500/5 border border-orange-500/10">
+                      <div className="p-3 bg-orange-500/20 rounded-2xl text-orange-500 shrink-0"><Sparkles size={20}/></div>
+                      <div>
+                        <h4 className="text-xs font-black uppercase tracking-wider text-orange-600 mb-1">Outfit Suggestion</h4>
+                        <p className="text-sm font-medium leading-relaxed">{lifestyleSuggestions.dress}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-4 items-start p-4 rounded-3xl bg-blue-500/5 border border-blue-500/10">
+                      <div className="p-3 bg-blue-500/20 rounded-2xl text-blue-500 shrink-0"><LayoutDashboard size={20}/></div>
+                      <div>
+                        <h4 className="text-xs font-black uppercase tracking-wider text-blue-600 mb-1">Lifestyle Tip</h4>
+                        <p className="text-sm font-medium leading-relaxed">{lifestyleSuggestions.tip}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-4 items-start p-4 rounded-3xl bg-amber-500/5 border border-amber-500/10">
+                      <div className="p-3 bg-amber-500/20 rounded-2xl text-amber-600 shrink-0"><Bell size={20}/></div>
+                      <div>
+                        <h4 className="text-xs font-black uppercase tracking-wider text-amber-600 mb-1">Health & Travel Alert</h4>
+                        <p className="text-sm font-medium leading-relaxed">{lifestyleSuggestions.alertText}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="lg:col-span-2">
-                    <WeatherChart data={filteredChartData} timelineLabel={chartTimelineLabel} />
+                )}
+
+                {/* গ্রাফ ও সানরাইজ বক্সেও {isDarkMode} ভ্যালু নিখুঁতভাবে পাস করা হয়েছে */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <div className={`backdrop-blur-2xl p-6 rounded-[2.5rem] border shadow-xl ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100/80 border-slate-200 text-slate-800'}`}>
+                    <SolarTracker weather={currentDisplayedWeather} isDarkMode={isDarkMode} />
+                  </div>
+                  <div className={`lg:col-span-2 backdrop-blur-2xl p-6 rounded-[2.5rem] border shadow-xl ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100/80 border-slate-200 text-slate-800'}`}>
+                    <WeatherChart data={filteredChartData} timelineLabel={chartTimelineLabel} isDarkMode={isDarkMode} />
                   </div>
                 </div>
 
               </div>
 
               <div className="space-y-8">
-                <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-3xl p-8 rounded-[2.5rem] border border-white/10 shadow-2xl relative overflow-hidden group">
+                <div className={`backdrop-blur-3xl p-8 rounded-[2.5rem] border shadow-2xl relative overflow-hidden group ${isDarkMode ? 'bg-gradient-to-br from-white/10 to-white/5 border-white/10 text-white' : 'bg-gradient-to-br from-slate-100 to-slate-200 border-slate-200 text-slate-800'}`}>
                   <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full blur-3xl group-hover:bg-orange-500/20 transition-all duration-500"></div>
-                  <h3 className="text-white/30 text-[10px] font-black uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <h3 className={`text-[10px] font-black uppercase tracking-widest mb-4 flex items-center gap-2 ${isDarkMode ? 'text-white/30' : 'text-slate-400'}`}>
                     <Clock size={14} className="text-orange-500 animate-pulse" /> Local Time
                   </h3>
-                  <p className="text-2xl font-black tracking-wide text-white drop-shadow-sm">
+                  <p className="text-2xl font-black tracking-wide drop-shadow-sm">
                     {localTime || "Loading time..."}
                   </p>
-                  <p className="text-xs text-white/40 font-medium mt-2">
+                  <p className={`text-xs font-medium mt-2 ${isDarkMode ? 'text-white/40' : 'text-slate-400'}`}>
                     Current time in {weather.name}, {weather.sys.country}
                   </p>
                 </div>
 
                 {countryData && (
-                  <div className="bg-white/5 backdrop-blur-3xl p-8 rounded-[2.5rem] border border-white/10 shadow-2xl">
-                    <h3 className="text-white/30 text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2">
+                  <div className={`backdrop-blur-3xl p-8 rounded-[2.5rem] border shadow-2xl ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100/80 border-slate-200 text-slate-800'}`}>
+                    <h3 className={`text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white/30' : 'text-slate-400'}`}>
                       <Globe size={14} className="text-orange-500" /> Country Profile
                     </h3>
                     <div className="flex items-center gap-5 mb-8">
                       <img src={countryData.flags.svg} alt="flag" className="w-16 h-10 rounded-xl object-cover border border-white/10 shadow-sm" />
                       <div>
-                        <h4 className="text-xl font-black text-white">{countryData.name.common}</h4>
+                        <h4 className="text-xl font-black">{countryData.name.common}</h4>
                         <p className="text-sm text-orange-400 font-bold">{countryData.capital?.[0]}</p>
                       </div>
                     </div>
                     <div className="space-y-3">
-                      <div className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5">
-                        <span className="text-white/40 text-xs font-bold uppercase flex items-center gap-2"><Users size={16}/> People</span>
-                        <span className="font-black text-sm text-white">{(countryData.population / 1000000).toFixed(1)}M</span>
+                      <div className={`flex justify-between items-center p-4 rounded-2xl border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-200/40 border-slate-300/60'}`}>
+                        <span className={`text-xs font-bold uppercase flex items-center gap-2 ${isDarkMode ? 'text-white/40' : 'text-slate-400'}`}><Users size={16}/> People</span>
+                        <span className="font-black text-sm">{(countryData.population / 1000000).toFixed(1)}M</span>
                       </div>
-                      <div className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5">
-                        <span className="text-white/40 text-xs font-bold uppercase flex items-center gap-2"><Coins size={16}/> Currency</span>
-                        <span className="font-black text-sm text-white">{Object.values(countryData.currencies)[0].symbol}</span>
+                      <div className={`flex justify-between items-center p-4 rounded-2xl border ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-200/40 border-slate-300/60'}`}>
+                        <span className={`text-xs font-bold uppercase flex items-center gap-2 ${isDarkMode ? 'text-white/40' : 'text-slate-400'}`}><Coins size={16}/> Currency</span>
+                        <span className="font-black text-sm">{Object.values(countryData.currencies)[0].symbol}</span>
                       </div>
                     </div>
                   </div>
