@@ -5,8 +5,9 @@ import { Compass, Droplets, Thermometer, Wind } from 'lucide-react';
 export default function WeatherCard({ weather, aqi, icon, formatTemp, isDarkMode }) {
   if (!weather) return null;
 
-  const isNight = weather.weather[0].icon.endsWith('n');
-  const mainCondition = weather.weather[0].main.toLowerCase();
+  
+ const isNight = weather?.weather?.[0]?.icon?.endsWith('n') || false;
+ const mainCondition = weather?.weather?.[0]?.main?.toLowerCase() || '';
 
   const getAqiStatus = (aqiValue) => {
     switch (aqiValue) {
